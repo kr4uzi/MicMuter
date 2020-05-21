@@ -19,22 +19,48 @@ class HotkeyManager: KeyHookDelegate {
     
     let keyHook: KeyHook!
     var pressedKeys = Set<UInt32>()
-    var hotkeySequence: Set<UInt32>!
+    var hotkeySequence: Set<UInt32> = []
     
-    init(runLoop: CFRunLoop, hotkeys: Set<UInt32> = Set<UInt32>()) {
+    init(runLoop: CFRunLoop) {
         keyHook = KeyHook(runLoop: runLoop)
         keyHook.delegate = self
+    }
+    
+    deinit {
+        keyHook.delegate = nil
+        keyHook.stop()
+    }
+    
+    func start() -> Bool {
+        if !started() {
+            return keyHook.start()
+        }
         
-        hotkeySequence = hotkeys
+        return true
     }
     
-    func authorized() -> Bool {
-        return false
+    func stop() {
+        keyHook.stop()
     }
     
-    func recordHotkeys(callback: @escaping (Set<UInt32>) -> Void) {
+    func started() -> Bool {
+        return keyHook.started
+    }
+    
+    func stopHotkeyRecording() {
+        pressedKeys.removeAll()
+        recordingCallBack = nil
+    }
+    
+    func recordHotkeys(callback: @escaping (Set<UInt32>) -> Void) -> Bool {
         pressedKeys.removeAll()
         recordingCallBack = callback
+        
+        if !started() {
+            return keyHook.start()
+        }
+        
+        return true
     }
     
     func onKeyPress(keycode: UInt32, state: KeyState) {
@@ -45,7 +71,9 @@ class HotkeyManager: KeyHookDelegate {
         }
         
         if recordingCallBack != nil {
-            if state == .up {
+            // pressedKeys.count > 0 because you could start recording hotkeys with one key already down
+            // if this key is released the, the recording will end
+            if pressedKeys.count > 0 && state == .up {
                 // the first keyup marks the end of the hotkey sequence
                 // this key is still part of the hotkey sequence and
                 // because .up keycodes are removed from pressedKeys (see above),

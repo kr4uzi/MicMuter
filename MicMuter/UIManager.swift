@@ -7,27 +7,37 @@
 //
 
 import Foundation
+import SwiftUI
+import Combine
 
-protocol UIManagerDelegate : AnyObject {
+protocol UIManagerDelegate: AnyObject {
     func quitWasRequested()
     func muteWasRequested()
+    func openConfigWasRequested()
 }
+
+let micOnImage = NSImage(named: "MicrophoneFilled_Normal")
+let micOffImage = NSImage(named: "MicrophoneStroke_Normal")
+let micOnImageTouchbar = NSImage(named: NSImage.touchBarAudioInputTemplateName)
+let micOffImageTouchbar = NSImage(named: NSImage.touchBarAudioInputMuteTemplateName)
 
 class UIManager {
     weak var delegate: UIManagerDelegate?
     
-    var statusBarItem: NSStatusItem! // system tray icon + menu
-    var muteMenuItem: NSMenuItem!    // mute button in system tray menu
-    var touchBarButton: NSButton!
+    private static let touchbarId = NSTouchBarItem.Identifier(rawValue: Bundle.main.bundleIdentifier!)
     
-    let micOnImage = NSImage(named: "MicrophoneFilled_Normal")
-    let micOffImage = NSImage(named: "MicrophoneStroke_Normal")
-    let micOnImageTouchbar = NSImage(named: NSImage.touchBarAudioInputTemplateName)
-    let micOffImageTouchbar = NSImage(named: NSImage.touchBarAudioInputMuteTemplateName)
+    private var statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength) // system tray icon + menu
+    private var muteMenuItem: NSMenuItem!    // mute button in system tray menu
     
-    func start() {
+    private var touchBarButton: NSButton!    
+    private var watchers = Set<AnyCancellable>()
+    
+    init(config: MicMuterConfig) {
+        configureTouchBar()
         configureStatusBar()
-        configureTouchbar()
+        
+        setTouchbarButtonVisible(config.showTouchBarButton)
+        config.$showTouchBarButton.dropFirst().sink(receiveValue: { self.setTouchbarButtonVisible($0) }).store(in: &watchers)
     }
     
     func setMutedState(muted: Bool) {
@@ -43,17 +53,18 @@ class UIManager {
         }
     }
     
-    func configureTouchbar() {
+    func setTouchbarButtonVisible(_ visible: Bool) {
+        DFRElementSetControlStripPresenceForIdentifier(UIManager.touchbarId, visible)
+    }
+    
+    func configureTouchBar() {
+        let touchBarItem = NSCustomTouchBarItem(identifier: UIManager.touchbarId)
         touchBarButton = NSButton(title: "", target: self, action: #selector(UIManager.requestMute))
-        
-        let touchBarItem = NSCustomTouchBarItem(identifier: NSTouchBarItem.Identifier("MicMuter"))
         touchBarItem.view = touchBarButton
         NSTouchBarItem.addSystemTrayItem(touchBarItem)
-        DFRElementSetControlStripPresenceForIdentifier(NSTouchBarItem.Identifier("MicMuter"), true)
     }
     
     func configureStatusBar() {
-        statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusBarItem.menu = NSMenu()
         
         muteMenuItem = addMenuItem(title: "Mute", translationComment: "Mute menu item title", action: #selector(UIManager.requestMute))
@@ -71,7 +82,7 @@ class UIManager {
     
     @objc
     func openConfigWindow() {
-        
+        delegate?.openConfigWasRequested()
     }
 
     @objc

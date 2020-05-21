@@ -16,8 +16,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
     var lastVolume: Float32 = 0
     var lastInputDevice: AudioDeviceID = AudioDeviceID.max
     
-    var micManager: MicManager!
+    
     var hotkeyManager: HotkeyManager!
+    var configManager: ConfigManager!
+    var micManager: MicManager!
     var uiManager: UIManager!
     
     var window: NSWindow!
@@ -28,8 +30,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
         }
         
         micManager = MicManager()
-        hotkeyManager = HotkeyManager(runLoop: CFRunLoopGetCurrent(), hotkeys: AppDelegate.loadHotkeys())
-        uiManager = UIManager()
+        
+        hotkeyManager = HotkeyManager(runLoop: CFRunLoopGetCurrent())
+        configManager = ConfigManager(hotkeyManager: hotkeyManager)
+        uiManager = UIManager(config: configManager.config)
     }
     
     static func appAlreadyRunning() -> Bool {
@@ -43,24 +47,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
         return false
     }
     
-    static func loadHotkeys() -> Set<UInt32> {
-        if let storedHotkeys = UserDefaults.standard.array(forKey: "hotkeys") as? Array<UInt32> {
-            return Set(storedHotkeys)
-        }
-        
-        return Set<UInt32>()
-    }
-    
-    func application(_ app: NSApplication, willEncodeRestorableState coder: NSCoder) {
-        print("called")
-    }
-    
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         micManager.delegate = self
         hotkeyManager.delegate = self
         uiManager.delegate = self
-        
-        uiManager.start()
         
         setInitialState()
         
@@ -150,5 +140,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
     
     func hotkeyPressed() {
         toggleMute()
+    }
+    
+    func openConfigWasRequested() {
+        configManager.openConfigWindow()
     }
 }

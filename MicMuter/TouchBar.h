@@ -14,5 +14,6 @@ extern void DFRElementSetControlStripPresenceForIdentifier(NSTouchBarItemIdentif
 @interface NSTouchBarItem ()
 
 + (void)addSystemTrayItem:(NSTouchBarItem *)item;
++ (void)removeSystemTrayItem:(NSTouchBarItem *)item;
 
 @end

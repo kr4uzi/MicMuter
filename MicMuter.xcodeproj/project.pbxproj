@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 53;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,26 +11,27 @@
 		A3387AA02463D94F001FA718 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3387A9F2463D94F001FA718 /* HotkeyManager.swift */; };
 		A3534D1F245EA11E00081675 /* MicManager.mm in Sources */ = {isa = PBXBuildFile; fileRef = A3534D1E245EA11E00081675 /* MicManager.mm */; };
 		A3CEF5E9245E078F005CB266 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5E8245E078F005CB266 /* AppDelegate.swift */; };
-		A3CEF5EB245E078F005CB266 /* ConfigView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5EA245E078F005CB266 /* ConfigView.swift */; };
+		A3CEF5EB245E078F005CB266 /* ConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5EA245E078F005CB266 /* ConfigManager.swift */; };
 		A3CEF5ED245E078F005CB266 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A3CEF5EC245E078F005CB266 /* Assets.xcassets */; };
 		A3CEF5F0245E078F005CB266 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A3CEF5EF245E078F005CB266 /* Preview Assets.xcassets */; };
 		A3CEF5FC245E0806005CB266 /* KeyHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5FB245E0806005CB266 /* KeyHook.swift */; };
 		A3DACFCE245F5FA800451AB4 /* DFRFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3DACFCD245F5FA800451AB4 /* DFRFoundation.framework */; };
 		A3DACFCF245F5FA800451AB4 /* DFRFoundation.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3DACFCD245F5FA800451AB4 /* DFRFoundation.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A3E5D1852475CA1000FCEAF2 /* TouchbarHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E5D1842475CA1000FCEAF2 /* TouchbarHelper.swift */; };
 		A3F594042465D1CD000574CD /* UIManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F594032465D1CD000574CD /* UIManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		A3DACFD0245F5FA800451AB4 /* Embed Frameworks */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
 				A3DACFCF245F5FA800451AB4 /* DFRFoundation.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -42,7 +43,7 @@
 		A3534D1E245EA11E00081675 /* MicManager.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MicManager.mm; sourceTree = "<group>"; };
 		A3CEF5E5245E078F005CB266 /* MicMuter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MicMuter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A3CEF5E8245E078F005CB266 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		A3CEF5EA245E078F005CB266 /* ConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigView.swift; sourceTree = "<group>"; };
+		A3CEF5EA245E078F005CB266 /* ConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
 		A3CEF5EC245E078F005CB266 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A3CEF5EF245E078F005CB266 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		A3CEF5F4245E078F005CB266 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -50,6 +51,7 @@
 		A3CEF5FB245E0806005CB266 /* KeyHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyHook.swift; sourceTree = "<group>"; };
 		A3DACFCB245F5B8500451AB4 /* TouchBar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TouchBar.h; sourceTree = "<group>"; };
 		A3DACFCD245F5FA800451AB4 /* DFRFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DFRFoundation.framework; path = ../../../../System/Library/PrivateFrameworks/DFRFoundation.framework; sourceTree = "<group>"; };
+		A3E5D1842475CA1000FCEAF2 /* TouchbarHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchbarHelper.swift; sourceTree = "<group>"; };
 		A3F594032465D1CD000574CD /* UIManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -88,9 +90,10 @@
 				A311A8CA2466CF54005209CD /* Main.storyboard */,
 				A3CEF5E8245E078F005CB266 /* AppDelegate.swift */,
 				A3F594032465D1CD000574CD /* UIManager.swift */,
+				A3E5D1842475CA1000FCEAF2 /* TouchbarHelper.swift */,
+				A3CEF5EA245E078F005CB266 /* ConfigManager.swift */,
 				A3387A9F2463D94F001FA718 /* HotkeyManager.swift */,
 				A3CEF5FB245E0806005CB266 /* KeyHook.swift */,
-				A3CEF5EA245E078F005CB266 /* ConfigView.swift */,
 				A3CEF5EC245E078F005CB266 /* Assets.xcassets */,
 				A3CEF5F4245E078F005CB266 /* Info.plist */,
 				A3CEF5F5245E078F005CB266 /* MicMuter.entitlements */,
@@ -157,7 +160,7 @@
 				};
 			};
 			buildConfigurationList = A3CEF5E0245E078F005CB266 /* Build configuration list for PBXProject "MicMuter" */;
-			compatibilityVersion = "Xcode 9.3";
+			compatibilityVersion = "Xcode 11.4";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -192,7 +195,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A3CEF5EB245E078F005CB266 /* ConfigView.swift in Sources */,
+				A3E5D1852475CA1000FCEAF2 /* TouchbarHelper.swift in Sources */,
+				A3CEF5EB245E078F005CB266 /* ConfigManager.swift in Sources */,
 				A3534D1F245EA11E00081675 /* MicManager.mm in Sources */,
 				A3387AA02463D94F001FA718 /* HotkeyManager.swift in Sources */,
 				A3CEF5E9245E078F005CB266 /* AppDelegate.swift in Sources */,
@@ -325,6 +329,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = MicMuter/MicMuter.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"MicMuter/Preview Content\"";
@@ -339,6 +344,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_BUNDLE_IDENTIFIER = krauzi.MicMuter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "MicMuter/MicMuter-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -355,6 +361,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = MicMuter/MicMuter.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"MicMuter/Preview Content\"";
@@ -369,6 +376,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_BUNDLE_IDENTIFIER = krauzi.MicMuter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "MicMuter/MicMuter-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = (
