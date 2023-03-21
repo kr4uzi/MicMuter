@@ -10,6 +10,8 @@
 		A311A8CB2466CF54005209CD /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A311A8CA2466CF54005209CD /* Main.storyboard */; };
 		A3387AA02463D94F001FA718 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3387A9F2463D94F001FA718 /* HotkeyManager.swift */; };
 		A3534D1F245EA11E00081675 /* MicManager.mm in Sources */ = {isa = PBXBuildFile; fileRef = A3534D1E245EA11E00081675 /* MicManager.mm */; };
+		A3B2FCD429CA4DF3006C1071 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B2FCD329CA4DF2006C1071 /* Settings.swift */; };
+		A3B2FCD629CA4E22006C1071 /* HIDKeyHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3B2FCD529CA4E22006C1071 /* HIDKeyHook.swift */; };
 		A3CEF5E9245E078F005CB266 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5E8245E078F005CB266 /* AppDelegate.swift */; };
 		A3CEF5EB245E078F005CB266 /* ConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5EA245E078F005CB266 /* ConfigManager.swift */; };
 		A3CEF5ED245E078F005CB266 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A3CEF5EC245E078F005CB266 /* Assets.xcassets */; };
@@ -17,8 +19,7 @@
 		A3CEF5FC245E0806005CB266 /* KeyHook.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CEF5FB245E0806005CB266 /* KeyHook.swift */; };
 		A3DACFCE245F5FA800451AB4 /* DFRFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A3DACFCD245F5FA800451AB4 /* DFRFoundation.framework */; };
 		A3DACFCF245F5FA800451AB4 /* DFRFoundation.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A3DACFCD245F5FA800451AB4 /* DFRFoundation.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		A3E5D1852475CA1000FCEAF2 /* TouchbarHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E5D1842475CA1000FCEAF2 /* TouchbarHelper.swift */; };
-		A3F594042465D1CD000574CD /* UIManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F594032465D1CD000574CD /* UIManager.swift */; };
+		A3F594042465D1CD000574CD /* MenuManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F594032465D1CD000574CD /* MenuManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -41,6 +42,8 @@
 		A3534D1C245E9D1500081675 /* MicMuter-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "MicMuter-Bridging-Header.h"; sourceTree = "<group>"; };
 		A3534D1D245E9D1600081675 /* MicManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MicManager.h; sourceTree = "<group>"; };
 		A3534D1E245EA11E00081675 /* MicManager.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MicManager.mm; sourceTree = "<group>"; };
+		A3B2FCD329CA4DF2006C1071 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
+		A3B2FCD529CA4E22006C1071 /* HIDKeyHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDKeyHook.swift; sourceTree = "<group>"; };
 		A3CEF5E5245E078F005CB266 /* MicMuter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MicMuter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A3CEF5E8245E078F005CB266 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A3CEF5EA245E078F005CB266 /* ConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigManager.swift; sourceTree = "<group>"; };
@@ -51,8 +54,7 @@
 		A3CEF5FB245E0806005CB266 /* KeyHook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyHook.swift; sourceTree = "<group>"; };
 		A3DACFCB245F5B8500451AB4 /* TouchBar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TouchBar.h; sourceTree = "<group>"; };
 		A3DACFCD245F5FA800451AB4 /* DFRFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DFRFoundation.framework; path = ../../../../System/Library/PrivateFrameworks/DFRFoundation.framework; sourceTree = "<group>"; };
-		A3E5D1842475CA1000FCEAF2 /* TouchbarHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchbarHelper.swift; sourceTree = "<group>"; };
-		A3F594032465D1CD000574CD /* UIManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIManager.swift; sourceTree = "<group>"; };
+		A3F594032465D1CD000574CD /* MenuManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,11 +91,12 @@
 			children = (
 				A311A8CA2466CF54005209CD /* Main.storyboard */,
 				A3CEF5E8245E078F005CB266 /* AppDelegate.swift */,
-				A3F594032465D1CD000574CD /* UIManager.swift */,
-				A3E5D1842475CA1000FCEAF2 /* TouchbarHelper.swift */,
+				A3B2FCD329CA4DF2006C1071 /* Settings.swift */,
+				A3F594032465D1CD000574CD /* MenuManager.swift */,
 				A3CEF5EA245E078F005CB266 /* ConfigManager.swift */,
 				A3387A9F2463D94F001FA718 /* HotkeyManager.swift */,
 				A3CEF5FB245E0806005CB266 /* KeyHook.swift */,
+				A3B2FCD529CA4E22006C1071 /* HIDKeyHook.swift */,
 				A3CEF5EC245E078F005CB266 /* Assets.xcassets */,
 				A3CEF5F4245E078F005CB266 /* Info.plist */,
 				A3CEF5F5245E078F005CB266 /* MicMuter.entitlements */,
@@ -150,7 +153,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1140;
-				LastUpgradeCheck = 1140;
+				LastUpgradeCheck = 1420;
 				ORGANIZATIONNAME = "Markus Kraus";
 				TargetAttributes = {
 					A3CEF5E4245E078F005CB266 = {
@@ -195,13 +198,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A3E5D1852475CA1000FCEAF2 /* TouchbarHelper.swift in Sources */,
 				A3CEF5EB245E078F005CB266 /* ConfigManager.swift in Sources */,
+				A3B2FCD429CA4DF3006C1071 /* Settings.swift in Sources */,
+				A3B2FCD629CA4E22006C1071 /* HIDKeyHook.swift in Sources */,
 				A3534D1F245EA11E00081675 /* MicManager.mm in Sources */,
 				A3387AA02463D94F001FA718 /* HotkeyManager.swift in Sources */,
 				A3CEF5E9245E078F005CB266 /* AppDelegate.swift in Sources */,
 				A3CEF5FC245E0806005CB266 /* KeyHook.swift in Sources */,
-				A3F594042465D1CD000574CD /* UIManager.swift in Sources */,
+				A3F594042465D1CD000574CD /* MenuManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -235,6 +239,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -242,6 +247,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -296,6 +302,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -303,6 +310,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -330,18 +338,23 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = MicMuter/MicMuter.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"MicMuter/Preview Content\"";
 				DEVELOPMENT_TEAM = 5968Q338NG;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = MicMuter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MicMuter;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = krauzi.MicMuter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -362,18 +375,23 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = MicMuter/MicMuter.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"MicMuter/Preview Content\"";
 				DEVELOPMENT_TEAM = 5968Q338NG;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = MicMuter/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MicMuter;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = krauzi.MicMuter;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

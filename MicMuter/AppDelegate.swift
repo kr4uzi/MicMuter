@@ -8,19 +8,21 @@
 
 import Cocoa
 import Carbon
+import Combine
 import SwiftUI
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyManagerDelegate, UIManagerDelegate {
-    var programaticToggleInProgress = false
-    var lastVolume: Float32 = 0
-    var lastInputDevice: AudioDeviceID = AudioDeviceID.max
+    private var programaticToggleInProgress = false
+    private var lastVolume: Float32 = 0
+    private var lastInputDevice: AudioDeviceID = AudioDeviceID.max
     
-    
-    var hotkeyManager: HotkeyManager!
-    var configManager: ConfigManager!
-    var micManager: MicManager!
-    var uiManager: UIManager!
+    private var settings: Settings
+    private var hotkeyManager: HotkeyManager
+    private var configManager: ConfigManager
+    private var micManager: MicManager
+    private var menuManager: MenuManager
+    private var watchers = Set<AnyCancellable>()
     
     var window: NSWindow!
     
@@ -31,9 +33,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
         
         micManager = MicManager()
         
+        settings = Settings()
         hotkeyManager = HotkeyManager(runLoop: CFRunLoopGetCurrent())
-        configManager = ConfigManager(hotkeyManager: hotkeyManager)
-        uiManager = UIManager(config: configManager.config)
+        configManager = ConfigManager(settings: settings, hotkeyManager: hotkeyManager)
+        menuManager = MenuManager(settings: settings)
     }
     
     static func appAlreadyRunning() -> Bool {
@@ -50,19 +53,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         micManager.delegate = self
         hotkeyManager.delegate = self
-        uiManager.delegate = self
+        menuManager.delegate = self
         
-        setInitialState()
+        loadCurrentInputDeviceState()
         
         restoreLastVolume()
         
         DispatchQueue.global(qos: .background).async {
             CFRunLoopRun()
         }
+
+        settings.$hotkeysEnabled
+            .sink(receiveValue: { enabled in
+                if enabled {
+                    if !self.hotkeyManager.started() {
+                        self.hotkeyManager.start()
+                        if !self.hotkeyManager.started() {
+                            // the user has to manually enable the "Input Monitoring"
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
+                            
+                            // as the hotkeymanager could not be started, we untoggle the checkbox
+                            DispatchQueue.main.async {
+                                self.settings.objectWillChange.send()
+                                self.settings.hotkeysEnabled = false
+                            }
+                        }
+                    }
+                } else {
+                    self.hotkeyManager.stop()
+                }
+            })
+            .store(in: &self.watchers)
+        
+        settings.$hotkey.sink(receiveValue: { hotkey in
+            self.hotkeyManager.hotkey = hotkey
+        }).store(in: &self.watchers)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        if lastInputDevice != UInt32.max {
+        if lastInputDevice != UInt32.max && lastVolume > 0 {
             UserDefaults.standard.set(lastInputDevice, forKey: "lastInputDevice")
             UserDefaults.standard.set(lastVolume, forKey: "lastVolume")
         }
@@ -71,8 +100,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
     func restoreLastVolume() {
         if micManager.defaultInputDeviceIsValid() {
             let previousSavedInputDevice = AudioDeviceID(UserDefaults.standard.integer(forKey: "lastInputDevice"))
-            if previousSavedInputDevice != AudioDeviceID.max && previousSavedInputDevice ==  micManager.getDefaultInputDeviceId() {
+            if previousSavedInputDevice != AudioDeviceID.max && previousSavedInputDevice == micManager.getDefaultInputDeviceId() {
                 lastVolume = UserDefaults.standard.float(forKey: "lastVolume")
+                
+                if lastVolume == 0 {
+                    lastVolume = micManager.getDefaultInputDeviceVolume()
+                }
             }
         }
     }
@@ -81,7 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
         lastInputDevice = deviceId
         
         DispatchQueue.main.async {
-            self.setInitialState()
+            self.loadCurrentInputDeviceState()
         }
     }
     
@@ -101,12 +134,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
         }
         
         DispatchQueue.main.async {
-            self.uiManager.setMutedState(muted: muted)
+            self.menuManager.setMutedState(muted: muted)
         }
     }
     
-    func setInitialState() {
+    func loadCurrentInputDeviceState() {
         if micManager.defaultInputDeviceIsValid() {
+            programaticToggleInProgress = false
+            
             lastInputDevice = micManager.getDefaultInputDeviceId()
             lastVolume = micManager.getDefaultInputDeviceVolume()
             
@@ -116,7 +151,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
     }
     
     func toggleMute() {
-        if lastInputDevice != UInt32.max {
+        if micManager.defaultInputDeviceIsValid() {
             let currentlyMuted = micManager.getDefaultInputDeviceMuted()
             if (!currentlyMuted) {
                 programaticToggleInProgress = true
@@ -144,5 +179,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, MicManagerDelegate, HotkeyMa
     
     func openConfigWasRequested() {
         configManager.openConfigWindow()
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

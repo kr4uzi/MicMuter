@@ -129,7 +129,7 @@ class DefaultInputDeviceListener : micMuter::AudioObjectPropertyListener {
     static constexpr AudioObjectPropertyAddress addr = {
         .mSelector = kAudioHardwarePropertyDefaultInputDevice,
         .mScope = kAudioObjectPropertyScopeGlobal,
-        .mElement = kAudioObjectPropertyElementMaster
+        .mElement = kAudioObjectPropertyElementMain
     };
     
 public:

@@ -10,221 +10,87 @@ import Combine
 import SwiftUI
 import ServiceManagement
 
-class ConfigWindow: NSObject, NSWindowDelegate, ConfigViewDelegate {
-    var configWindow: NSWindow!
-    var hotkeyManager: HotkeyManager
-    var config: MicMuterConfig
+class ConfigManager: NSObject, NSWindowDelegate, ObservableObject {
+    private var watchers = Set<AnyCancellable>()
     
-    init(config: MicMuterConfig, hotkeyManager: HotkeyManager) {
-        self.hotkeyManager = hotkeyManager
-        self.config = config
-        super.init()
-        
-        let configView = ConfigView(delegate: self).environmentObject(config)
-        configWindow = NSWindow(contentViewController: NSHostingController(rootView: configView))
-        configWindow.title = NSLocalizedString("Preferences", comment: "Preferences window")
-        configWindow.delegate = self
-    }
+    private var configWindow: NSWindow!
+    private let hotkeyManager: HotkeyManager
     
-    func open() {
-        configWindow.makeKeyAndOrderFront(nil)
-    }
+    @Published
+    var settings: Settings
     
+    @Published
+    var hotkeyButtonText = ""
+    
+    @Published
+    var showRestartRequiredMessage = false
+
     func windowWillClose(_ notification: Notification) {
         hotkeyManager.stopHotkeyRecording()
     }
     
-    func shortcutButtonPressed() {
-        if !KeyHook.hasPermission() {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
-            return
-        }
-        
-        let started = hotkeyManager.recordHotkeys(callback: { hotkeys in
-            if !hotkeys.isEmpty {
-                self.config.shortcutState = .ShortcutSet
-                self.hotkeyManager.hotkeySequence = hotkeys
-                self.config.shortcut = hotkeys
-            } else {
-                self.config.shortcutState = .ShortcutNotSet
-            }
-        })
-        
-        self.config.shortcutState = started ? .Recording : .Error
-    }
-}
-
-enum ShortcutState {
-    case ShortcutNotSet
-    case ShortcutSet
-    case Recording
-    case PriviledgeRevoked
-    case Error
-}
-
-final class MicMuterConfig: ObservableObject {
-    @Published var startAtLogin: Bool
-    @Published var showTouchBarButton: Bool
-    @Published var shortcut: Set<UInt32>
-    @Published var shortcutState: ShortcutState
-    
-    init(startAtLogin: Bool, showTouchBarButton: Bool, shortcut: Set<UInt32>, shortcutState: ShortcutState) {
-        self.startAtLogin = startAtLogin
-        self.showTouchBarButton = showTouchBarButton
-        self.shortcut = shortcut
-        self.shortcutState = shortcutState
-    }
-}
-
-class ConfigManager {
-    private var hotkeyManager: HotkeyManager
-    private var configWindow: ConfigWindow!
-
-    private(set) var config: MicMuterConfig!
-    private var watchers = Set<AnyCancellable>()
-    
-    init(hotkeyManager: HotkeyManager) {
+    init(settings: Settings, hotkeyManager: HotkeyManager) {
         self.hotkeyManager = hotkeyManager
-        
-        let shortcut = ConfigManager.loadHotkeys()
-        config = MicMuterConfig(startAtLogin: ConfigManager.getStartAtLoginEnabled(),
-                                     showTouchBarButton: ConfigManager.loadShowTouchBarButton(showButtonDefault: true),
-                                     shortcut: shortcut,
-                                     shortcutState: ConfigManager.getShortCutState(shortcut: shortcut))
-        
-        
-        configWindow = ConfigWindow(config: config, hotkeyManager: hotkeyManager)
-        
-        config.$startAtLogin.dropFirst().sink(receiveValue: { enabled in
-            let currentValue = ConfigManager.getStartAtLoginEnabled()
-            if enabled != currentValue {
-                let success = ConfigManager.setStartAtLoginEnabled(enabled: enabled)
-                if !success {
-                    print("failed to set startAtLoginEnabled \(enabled)")
-                    
-                    DispatchQueue.main.async {
-                        self.config.objectWillChange.send()
-                        self.config.startAtLogin = currentValue
-                    }
-                }
+        self.settings = settings
+        super.init()
+
+        settings.$hotkey.sink(receiveValue: { hotkey in
+            if (settings.hotkey != nil) {
+                self.hotkeyButtonText = hotkey!.description
+            } else {
+                self.hotkeyButtonText = "No hotkey set"
             }
-            
-            print("start at login: \(self.config.startAtLogin)")
         }).store(in: &watchers)
         
-        config.$showTouchBarButton.dropFirst().sink(receiveValue: { enabled in
-            UserDefaults.standard.set(enabled, forKey: "showTouchBarButton")
-        }).store(in: &watchers)
-        
-        config.$shortcut.dropFirst().sink(receiveValue: { shortcut in
-            UserDefaults.standard.set(shortcut, forKey: "shortcut")
-        }).store(in: &watchers)
+        configWindow = NSWindow(contentViewController: NSHostingController(rootView: ConfigView().environmentObject(self)))
+        configWindow.title = NSLocalizedString("Preferences", comment: "Preferences window title")
+        configWindow.delegate = self
+        configWindow.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        configWindow.standardWindowButton(.zoomButton)?.isHidden = true
     }
     
     func openConfigWindow() {
-        config.shortcutState = ConfigManager.getShortCutState(shortcut: config.shortcut)
-        configWindow.open()
+        configWindow.makeKeyAndOrderFront(nil)
     }
     
-    static private func getShortCutState(shortcut: Set<UInt32>) -> ShortcutState {
-        if !KeyHook.hasPermission() {
-            return .PriviledgeRevoked
-        } else if shortcut.isEmpty {
-            return .ShortcutNotSet
+    func hotkeyButtonPressed() {
+        if self.hotkeyManager.started() {
+            self.hotkeyButtonText = "       "
+            self.hotkeyManager.recordHotkey(callback: { hotkey in
+                self.settings.hotkey = hotkey
+            })
         }
-        
-        return .ShortcutSet
     }
-    
-    static private func getStartAtLoginEnabled() -> Bool {
-        guard let jobs = (SMCopyAllJobDictionaries(kSMDomainUserLaunchd).takeRetainedValue() as? [[String: AnyObject]]) else {
-            return false
-        }
-        
-        let job = jobs.first { $0["Label"] as! String == Bundle.main.bundleIdentifier! }
-        return job?["OnDemand"] as? Bool ?? false
-    }
-    
-    static private func setStartAtLoginEnabled(enabled: Bool) -> Bool {
-        if !SMLoginItemSetEnabled("\(Bundle.main.bundleIdentifier!)" as CFString, enabled) {
-            return false
-        }
-        
-        return true
-    }
-    
-    static private func loadHotkeys() -> Set<UInt32> {
-        if let storedHotkeys = UserDefaults.standard.array(forKey: "hotkeys") as? Array<UInt32> {
-            return Set(storedHotkeys)
-        }
-        
-        return Set<UInt32>()
-    }
-    
-    static private func loadShowTouchBarButton(showButtonDefault: Bool) -> Bool {
-        let showButton = UserDefaults.standard.object(forKey: "showTouchBarButton")
-        if showButton == nil {
-            return showButtonDefault
-        }
-        
-        return showButton as! Bool
-    }
-}
-
-protocol ConfigViewDelegate {
-    func shortcutButtonPressed()
 }
 
 struct ConfigView: View {
-    var buttonText = ""
-    
     @EnvironmentObject
-    var config: MicMuterConfig
-    
-    var delegate: ConfigViewDelegate?
+    var manager: ConfigManager
     
     var body: some View {
         TabView {
             VStack(alignment: .leading) {
-                Toggle(isOn: $config.startAtLogin, label: {
+                Toggle(isOn: $manager.settings.startAtLogin, label: {
                     Text("Start at login")
                 })
-                Toggle(isOn: $config.showTouchBarButton, label: {
+                Toggle(isOn: $manager.settings.showTouchBarButton, label: {
                     Text("Show Touchbar Button")
                 })
+                Toggle(isOn: $manager.settings.hotkeysEnabled, label: { Text("Enable Hotkeys")
+                })
                 HStack {
-                    Text("Shortcut")
-                    Button(action: {
-                        self.delegate?.shortcutButtonPressed()
-                    }, label: {
-                        if config.shortcutState == ShortcutState.ShortcutSet {
-                            Text("\(config.shortcut.map({ KeyHook.usageToKey(Int($0)) }).joined(separator: " "))")
-                        }
-                        else if config.shortcutState == ShortcutState.ShortcutNotSet {
-                            Text("Set Shortcut ...")
-                        }
-                        else if config.shortcutState == ShortcutState.Recording {
-                            Text("Recording ...")
-                        }
-                        else if config.shortcutState == ShortcutState.PriviledgeRevoked {
-                            Text("Enable Shortcut")
-                        }
-                        else if config.shortcutState == ShortcutState.Error {
-                            Text("<Error>")
-                        }
-                        else {
-                            Text("<Unknown>")
-                        }
-                    })
+                    Button(manager.hotkeyButtonText) {
+                        self.manager.hotkeyButtonPressed()
+                    }.disabled(!manager.settings.hotkeysEnabled)
                 }
             }.tabItem {
                 Text("Config")
-            }
+            }.padding(5)
             
             VStack {
-                Text("Version \(Bundle.version())")
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as! String)")
                 VStack {
-                    Text("Copyright © 2020 Markus Kraus.")
+                    Text("Copyright © 2021 Markus Kraus.")
                     Text("All rights reserved.")
                 }.padding(5)
             }.tabItem {
@@ -232,13 +98,19 @@ struct ConfigView: View {
             }
         }
         .padding(15)
-        .frame(width: 250, height: 150, alignment: .center)
+        .frame(width: 300, height: 200, alignment: .center)
+        .alert("Restart required", isPresented: $manager.showRestartRequiredMessage) {
+        } message: {
+            Text("This change only takes affect after the next launch of this app")
+        }
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ConfigView()
-            .environmentObject(MicMuterConfig(startAtLogin: false, showTouchBarButton: false, shortcut: Set<UInt32>(), shortcutState: .PriviledgeRevoked))
-    }
-}
+//struct ContentView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        ConfigView()
+//            .environmentObject(
+//                ConfigViewProperties(startAtLogin: false, showTouchBarButton: false, hotkeysEnabled: false, hotkeyButtonText: "")
+//            )
+//    }
+//}

@@ -6,16 +6,23 @@
 //  Copyright © 2020 Markus Kraus. All rights reserved.
 //
 
-import IOKit
-import IOKit.usb
-import IOKit.hid
 import Foundation
 import ApplicationServices
 import Cocoa
 import Carbon
 
 protocol KeyHookDelegate : AnyObject {
-    func onKeyPress(keycode: UInt32, state: KeyState)
+    func onKeyPress(key: Int64, flags: KeyFlags, state: KeyState)
+}
+
+struct KeyFlags: OptionSet {
+    let rawValue: Int
+    
+    static let Shift = KeyFlags(rawValue: 1 << 0)
+    static let Control = KeyFlags(rawValue: 1 << 1)
+    static let Alternate = KeyFlags(rawValue: 1 << 2)
+    static let Command = KeyFlags(rawValue: 1 << 3)
+    static let Function = KeyFlags(rawValue: 1 << 4)
 }
 
 enum KeyState {
@@ -23,284 +30,246 @@ enum KeyState {
     case down
 }
 
-let device: [String: Int] = [
-    kIOHIDDeviceUsageKey: kHIDUsage_GD_Keyboard,
-    kIOHIDDeviceUsagePageKey: kHIDPage_GenericDesktop
-]
-
-let filter: [String: Int] = [
-    kIOHIDElementUsageMinKey: 3,
-    kIOHIDElementUsageMaxKey: 231
-]
-
 class KeyHook {
     weak var delegate: KeyHookDelegate?
     
-    let runLoop: CFRunLoop
-    var started = false
-    var lastError = ""
-    let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-    var context: UnsafeMutableRawPointer!
+    private let runLoop: CFRunLoop
+    private var runLoopSource: CFRunLoopSource?
+    private(set) var started = false
+    private(set) var lastError = ""
     
     init(runLoop: CFRunLoop) {
         self.runLoop = runLoop
-        self.context = Unmanaged.passUnretained(self).toOpaque()
     }
     
     deinit {
         stop()
     }
     
-    static func hasPermission() -> Bool {
-        let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-        IOHIDManagerSetDeviceMatching(manager, device as CFDictionary)
-        
-        let status = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-        IOHIDManagerClose(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-        
-        return status == kIOReturnSuccess
-    }
-    
-    func start() -> Bool {
+    func start() {
         if started {
-            return true
+            return
         }
         
-        func hidKeyboardCallback(context: UnsafeMutableRawPointer?, result: IOReturn, sender: UnsafeMutableRawPointer?, value: IOHIDValue) {
-            let _self = Unmanaged<KeyHook>.fromOpaque(context!).takeUnretainedValue()
-            let elem = IOHIDValueGetElement(value)
-            let scancode = IOHIDElementGetUsage(elem)
-            let pressed = IOHIDValueGetIntegerValue(value)
+        func eventCallback(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent, context: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
+            if [.keyDown, .keyUp].contains(type) {
+                let repeated = event.getIntegerValueField(.keyboardEventAutorepeat)
+                if repeated == 0 {
+                    let _self = Unmanaged<KeyHook>.fromOpaque(context!).takeUnretainedValue()
+                    let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+                    
+                    let eventFlags = event.flags
+                    
+                    let fromFlags: [CGEventFlags] = [.maskShift, .maskControl, .maskAlternate, .maskCommand, .maskSecondaryFn]
+                    let toFlags: [KeyFlags] = [.Shift, .Control, .Alternate, .Command, .Function]
+                    var mappedFlags: KeyFlags = []
+                    
+                    for (index, flag) in fromFlags.enumerated() {
+                        if (eventFlags.rawValue & flag.rawValue) != 0 {
+                            mappedFlags.insert(toFlags[index])
+                        }
+                    }
+                    
+                    _self.delegate?.onKeyPress(key: keycode, flags: mappedFlags, state: type == .keyUp ? .up : .down)
+                }
+            }
             
-            print("\(scancode) \(KeyHook.usageToKey(Int(scancode)))")
+            return Unmanaged.passRetained(event)
+        }
+        
+        let context = Unmanaged.passRetained(self).toOpaque()
+        let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        guard let eventTap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly, eventsOfInterest: eventMask, callback: eventCallback, userInfo: context) else {
+            Unmanaged.passUnretained(self).release()
             
-            _self.delegate?.onKeyPress(keycode: scancode, state: pressed == 0 ? KeyState.up : KeyState.down)
+            print("failed to create event tap")
+            started = false
+            return
         }
         
-        IOHIDManagerSetInputValueMatching(manager, filter as CFDictionary)
-        IOHIDManagerSetDeviceMatching(manager, device as CFDictionary)
-        
-        IOHIDManagerRegisterInputValueCallback(manager, hidKeyboardCallback, context)
-        
-        IOHIDManagerScheduleWithRunLoop(manager, runLoop, CFRunLoopMode.defaultMode.rawValue)
-        
-        let status = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-        if status == kIOReturnSuccess {
-            started = true
-            return true
-        }
-        
-        if let cStr = mach_error_string(status) {
-            lastError = String (cString: cStr)
-        } else {
-            lastError = "\(status)"
-        }
-        
-        return false
+        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+        CFRunLoopAddSource(runLoop, runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+        started = true
     }
     
     func stop() {
         if started {
-            IOHIDManagerRegisterInputValueCallback(manager, nil, context)
+            CFRunLoopRemoveSource(runLoop, runLoopSource, .commonModes)
+            Unmanaged.passUnretained(self).release()
             started = false
         }
     }
     
-    static func usageToKey(_ usage: Int) -> String
-    {
-        switch (usage) {
-        case kHIDUsage_KeyboardErrorRollOver:       return "err_roll_over"
-        case kHIDUsage_KeyboardPOSTFail:            return "post_fail";
-        case kHIDUsage_KeyboardErrorUndefined:      return "undefined";
-
-        case kHIDUsage_KeyboardA:                   return "A";
-        case kHIDUsage_KeyboardB:                   return "B";
-        case kHIDUsage_KeyboardC:                   return "C";
-        case kHIDUsage_KeyboardD:                   return "D";
-        case kHIDUsage_KeyboardE:                   return "E";
-        case kHIDUsage_KeyboardF:                   return "F";
-        case kHIDUsage_KeyboardG:                   return "G";
-        case kHIDUsage_KeyboardH:                   return "H";
-        case kHIDUsage_KeyboardI:                   return "I";
-        case kHIDUsage_KeyboardJ:                   return "J";
-        case kHIDUsage_KeyboardK:                   return "K";
-        case kHIDUsage_KeyboardL:                   return "L";
-        case kHIDUsage_KeyboardM:                   return "M";
-        case kHIDUsage_KeyboardN:                   return "N";
-        case kHIDUsage_KeyboardO:                   return "O";
-        case kHIDUsage_KeyboardP:                   return "P";
-        case kHIDUsage_KeyboardQ:                   return "Q";
-        case kHIDUsage_KeyboardR:                   return "R";
-        case kHIDUsage_KeyboardS:                   return "S";
-        case kHIDUsage_KeyboardT:                   return "T";
-        case kHIDUsage_KeyboardU:                   return "U";
-        case kHIDUsage_KeyboardV:                   return "V";
-        case kHIDUsage_KeyboardW:                   return "W";
-        case kHIDUsage_KeyboardX:                   return "X";
-        case kHIDUsage_KeyboardY:                   return "Y";
-        case kHIDUsage_KeyboardZ:                   return "Z";
-
-        case kHIDUsage_Keyboard1:                   return "1";
-        case kHIDUsage_Keyboard2:                   return "2";
-        case kHIDUsage_Keyboard3:                   return "3";
-        case kHIDUsage_Keyboard4:                   return "4";
-        case kHIDUsage_Keyboard5:                   return "5";
-        case kHIDUsage_Keyboard6:                   return "6";
-        case kHIDUsage_Keyboard7:                   return "7";
-        case kHIDUsage_Keyboard8:                   return "8";
-        case kHIDUsage_Keyboard9:                   return "9";
-        case kHIDUsage_Keyboard0:                   return "0";
-
-        case kHIDUsage_KeyboardReturnOrEnter:       return "⏎"
-        case kHIDUsage_KeyboardEscape:              return "␛"
-        case kHIDUsage_KeyboardDeleteOrBackspace:   return "⌫"
-        case kHIDUsage_KeyboardTab:                 return "⇥"
-        case kHIDUsage_KeyboardSpacebar:            return "␣"
-        case kHIDUsage_KeyboardHyphen:              return "-";
-        case kHIDUsage_KeyboardEqualSign:           return "=";
-        case kHIDUsage_KeyboardOpenBracket:         return "(";
-        case kHIDUsage_KeyboardCloseBracket:        return ")";
-        case kHIDUsage_KeyboardBackslash:           return "\\";
-        case kHIDUsage_KeyboardNonUSPound:          return "non_us_pound";
-        case kHIDUsage_KeyboardSemicolon:           return ";";
-        case kHIDUsage_KeyboardQuote:               return "\"";
-        case kHIDUsage_KeyboardGraveAccentAndTilde: return "^";
-        case kHIDUsage_KeyboardComma:               return ",";
-        case kHIDUsage_KeyboardPeriod:              return ".";
-        case kHIDUsage_KeyboardSlash:               return "/";
-        case kHIDUsage_KeyboardCapsLock:            return "⇪"
-
-        case kHIDUsage_KeyboardF1:                  return "F1";
-        case kHIDUsage_KeyboardF2:                  return "F2";
-        case kHIDUsage_KeyboardF3:                  return "F3";
-        case kHIDUsage_KeyboardF4:                  return "F4";
-        case kHIDUsage_KeyboardF5:                  return "F5";
-        case kHIDUsage_KeyboardF6:                  return "F6";
-        case kHIDUsage_KeyboardF7:                  return "F7";
-        case kHIDUsage_KeyboardF8:                  return "F8";
-        case kHIDUsage_KeyboardF9:                  return "F9";
-        case kHIDUsage_KeyboardF10:                 return "F10";
-        case kHIDUsage_KeyboardF11:                 return "F11";
-        case kHIDUsage_KeyboardF12:                 return "F12";
-
-        case kHIDUsage_KeyboardPrintScreen:         return "print_screen";
-        case kHIDUsage_KeyboardScrollLock:          return "scroll_lock";
-        case kHIDUsage_KeyboardPause:               return "pause";
-        case kHIDUsage_KeyboardInsert:              return "ins";
-        case kHIDUsage_KeyboardHome:                return "home";
-        case kHIDUsage_KeyboardPageUp:              return "page_up";
-        case kHIDUsage_KeyboardDeleteForward:       return "⌦";
-        case kHIDUsage_KeyboardEnd:                 return "end";
-        case kHIDUsage_KeyboardPageDown:            return "page_down";
-
-        case kHIDUsage_KeyboardRightArrow:          return "→";
-        case kHIDUsage_KeyboardLeftArrow:           return "←";
-        case kHIDUsage_KeyboardDownArrow:           return "↓";
-        case kHIDUsage_KeyboardUpArrow:             return "↑";
-
-        case kHIDUsage_KeypadNumLock:               return "num_lock";
-        case kHIDUsage_KeypadSlash:                 return "/ (keypad)";
-        case kHIDUsage_KeypadAsterisk:              return "* (keypad)";
-        case kHIDUsage_KeypadHyphen:                return "- (keypad)";
-        case kHIDUsage_KeypadPlus:                  return "+ (keypad)";
-        case kHIDUsage_KeypadEnter:                 return "⏎ (keypad)";
-
-        case kHIDUsage_Keypad1:                     return "1 (keypad)";
-        case kHIDUsage_Keypad2:                     return "2 (keypad)";
-        case kHIDUsage_Keypad3:                     return "3 (keypad)";
-        case kHIDUsage_Keypad4:                     return "4 (keypad)";
-        case kHIDUsage_Keypad5:                     return "5 (keypad)";
-        case kHIDUsage_Keypad6:                     return "6 (keypad)";
-        case kHIDUsage_Keypad7:                     return "7 (keypad)";
-        case kHIDUsage_Keypad8:                     return "8 (keypad)";
-        case kHIDUsage_Keypad9:                     return "9 (keypad)";
-        case kHIDUsage_Keypad0:                     return "0 (keypad)";
-
-        case kHIDUsage_KeypadPeriod:                return ". (keypad)";
-        case kHIDUsage_KeyboardNonUSBackslash:      return "non_us_backslash";
-        case kHIDUsage_KeyboardApplication:         return "application";
-        case kHIDUsage_KeyboardPower:               return "power";
-        case kHIDUsage_KeypadEqualSign:             return "=";
-
-        case kHIDUsage_KeyboardF13:                 return "F13";
-        case kHIDUsage_KeyboardF14:                 return "F14";
-        case kHIDUsage_KeyboardF15:                 return "F15";
-        case kHIDUsage_KeyboardF16:                 return "F16";
-        case kHIDUsage_KeyboardF17:                 return "F17";
-        case kHIDUsage_KeyboardF18:                 return "F18";
-        case kHIDUsage_KeyboardF19:                 return "F19";
-        case kHIDUsage_KeyboardF20:                 return "F20";
-        case kHIDUsage_KeyboardF21:                 return "F21";
-        case kHIDUsage_KeyboardF22:                 return "F22";
-        case kHIDUsage_KeyboardF23:                 return "F23";
-        case kHIDUsage_KeyboardF24:                 return "F24";
-
-        case kHIDUsage_KeyboardExecute:             return "exec";
-        case kHIDUsage_KeyboardHelp:                return "help";
-        case kHIDUsage_KeyboardMenu:                return "menu";
-        case kHIDUsage_KeyboardSelect:              return "select";
-        case kHIDUsage_KeyboardStop:                return "stop";
-        case kHIDUsage_KeyboardAgain:               return "again";
-        case kHIDUsage_KeyboardUndo:                return "undo";
-        case kHIDUsage_KeyboardCut:                 return "cut";
-        case kHIDUsage_KeyboardCopy:                return "copy";
-        case kHIDUsage_KeyboardPaste:               return "paste";
-        case kHIDUsage_KeyboardFind:                return "find";
-
-        case kHIDUsage_KeyboardMute:                return "mute";
-        case kHIDUsage_KeyboardVolumeUp:            return "volume up";
-        case kHIDUsage_KeyboardVolumeDown:          return "volume down";
-
-        case kHIDUsage_KeyboardLockingCapsLock:     return "locking_caps_lock"
-        case kHIDUsage_KeyboardLockingNumLock:      return "locking_num_lock";
-        case kHIDUsage_KeyboardLockingScrollLock:   return "locking_scroll_lock";
-
-        case kHIDUsage_KeypadComma:                 return ", (keypad)";
-        case kHIDUsage_KeypadEqualSignAS400:        return "AS400 (keypad)";
-        case kHIDUsage_KeyboardInternational1:      return "int1";
-        case kHIDUsage_KeyboardInternational2:      return "int2";
-        case kHIDUsage_KeyboardInternational3:      return "int3";
-        case kHIDUsage_KeyboardInternational4:      return "int4";
-        case kHIDUsage_KeyboardInternational5:      return "int5";
-        case kHIDUsage_KeyboardInternational6:      return "int6";
-        case kHIDUsage_KeyboardInternational7:      return "int7";
-        case kHIDUsage_KeyboardInternational8:      return "int8";
-        case kHIDUsage_KeyboardInternational9:      return "int9";
-
-        case kHIDUsage_KeyboardLANG1:               return "lang1";
-        case kHIDUsage_KeyboardLANG2:               return "lang2";
-        case kHIDUsage_KeyboardLANG3:               return "lang3";
-        case kHIDUsage_KeyboardLANG4:               return "lang4";
-        case kHIDUsage_KeyboardLANG5:               return "lang5";
-        case kHIDUsage_KeyboardLANG6:               return "lang6";
-        case kHIDUsage_KeyboardLANG7:               return "lang7";
-        case kHIDUsage_KeyboardLANG8:               return "lang8";
-        case kHIDUsage_KeyboardLANG9:               return "lang9";
-
-        case kHIDUsage_KeyboardAlternateErase:      return "alt_erase";
-        case kHIDUsage_KeyboardSysReqOrAttention:   return "attention";
-        case kHIDUsage_KeyboardCancel:              return "cancel";
-        case kHIDUsage_KeyboardClear:               return "clear";
-        case kHIDUsage_KeyboardPrior:               return "prior";
-        case kHIDUsage_KeyboardReturn:              return "⏎";
-        case kHIDUsage_KeyboardSeparator:           return "seperator";
-        case kHIDUsage_KeyboardOut:                 return "out";
-        case kHIDUsage_KeyboardOper:                return "oper";
-        case kHIDUsage_KeyboardClearOrAgain:        return "clear_or_again";
-        case kHIDUsage_KeyboardCrSelOrProps:        return "sel_or_props";
-        case kHIDUsage_KeyboardExSel:               return "ex_sel";
-
-        case kHIDUsage_KeyboardLeftControl:         return "⌃";
-        case kHIDUsage_KeyboardLeftShift:           return "⇧";
-        case kHIDUsage_KeyboardLeftAlt:             return "⌥";
-        case kHIDUsage_KeyboardLeftGUI:             return "⌘";
-        case kHIDUsage_KeyboardRightControl:        return "⌃";
-        case kHIDUsage_KeyboardRightShift:          return "⇧";
-        case kHIDUsage_KeyboardRightAlt:            return "⌥";
-        case kHIDUsage_KeyboardRightGUI:            return "⌘";
-        case kHIDUsage_Keyboard_Reserved:           return "reserved";
-        case 3:                                     return "fn";
-        default:                                    return "unknown";
+    static func keyToStr(_ keycode: Int64) -> String {
+        let _keycode = CGKeyCode(keycode)
+        let key = keyCodeDictionary[_keycode]
+                
+        if key != nil {
+            return key!
         }
+        
+        let event = CGEvent(keyboardEventSource: .init(stateID: .privateState), virtualKey: _keycode, keyDown: true)
+        var length = 0
+        event!.keyboardGetUnicodeString(maxStringLength: 0, actualStringLength: &length, unicodeString: nil)
+        var chars = [UniChar](repeating: 0, count: length)
+        
+        event!.keyboardGetUnicodeString(maxStringLength: chars.count, actualStringLength: &length, unicodeString: &chars)
+        return String(utf16CodeUnits: chars, count: length).uppercased()
     }
 }
+
+// Is this from karabiner elements? I dont remember anymore
+// -> Source unknown...
+let keyCodeDictionary: Dictionary<CGKeyCode, String> = [
+    0: "A",
+    1: "S",
+    2: "D",
+    3: "F",
+    4: "H",
+    5: "G",
+    6: "Z",
+    7: "X",
+    8: "C",
+    9: "V",
+    10: "DANISH_DOLLAR",
+    11: "B",
+    12: "Q",
+    13: "W",
+    14: "E",
+    15: "R",
+    16: "Y",
+    17: "T",
+    18: "1",
+    19: "2",
+    20: "3",
+    21: "4",
+    22: "6",
+    23: "5",
+    24: "=",
+    25: "9",
+    26: "7",
+    27: "-",
+    28: "8",
+    29: "0",
+    30: "]",
+    31: "O",
+    32: "U",
+    33: "[",
+    34: "I",
+    35: "P",
+    36: "⏎",
+    37: "L",
+    38: "J",
+    39: "'",
+    40: "K",
+    41: ";",
+    42: "\\",
+    43: ",",
+    44: "/",
+    45: "N",
+    46: "M",
+    47: ".",
+    48: "⇥",
+    49: "Space",
+    50: "`",
+    51: "⌫",
+    52: "Enter_POWERBOOK",
+    53: "⎋",
+    54: "Command_R",
+    55: "Command_L",
+    56: "Shift_L",
+    57: "CapsLock",
+    58: "Option_L",
+    59: "Control_L",
+    60: "Shift_R",
+    61: "Option_R",
+    62: "Control_R",
+    63: "Fn",
+    64: "F17",
+    65: "Keypad_Dot",
+    67: "Keypad_Multiply",
+    69: "Keypad_Plus",
+    71: "Keypad_Clear",
+    75: "Keypad_Slash",
+    76: "⌤",
+    78: "Keypad_Minus",
+    79: "F18",
+    80: "F19",
+    81: "Keypad_Equal",
+    82: "Keypad_0",
+    83: "Keypad_1",
+    84: "Keypad_2",
+    85: "Keypad_3",
+    86: "Keypad_4",
+    87: "Keypad_5",
+    88: "Keypad_6",
+    89: "Keypad_7",
+    90: "F20",
+    91: "Keypad_8",
+    92: "Keypad_9",
+    93: "¥",
+    94: "_",
+    95: "Keypad_Comma",
+    96: "F5",
+    97: "F6",
+    98: "F7",
+    99: "F3",
+    100: "F8",
+    101: "F9",
+    102: "英数",
+    103: "F11",
+    104: "かな",
+    105: "F13",
+    106: "F16",
+    107: "F14",
+    109: "F10",
+    110: "App",
+    111: "F12",
+    113: "F15",
+    114: "Help",
+    115: "Home", // "↖",
+    116: "PgUp",
+    117: "⌦",
+    118: "F4",
+    119: "End", // "↘",
+    120: "F2",
+    121: "PgDn",
+    122: "F1",
+    123: "←",
+    124: "→",
+    125: "↓",
+    126: "↑",
+    127: "PC_POWER",
+    128: "GERMAN_PC_LESS_THAN",
+    130: "DASHBOARD",
+    131: "Launchpad",
+    144: "BRIGHTNESS_UP",
+    145: "BRIGHTNESS_DOWN",
+    160: "Expose_All",
+    
+    // media key (bata)
+    999: "Disable",
+    1000 + UInt16(NX_KEYTYPE_SOUND_UP): "Sound_up",
+    1000 + UInt16(NX_KEYTYPE_SOUND_DOWN): "Sound_down",
+    1000 + UInt16(NX_KEYTYPE_BRIGHTNESS_UP): "Brightness_up",
+    1000 + UInt16(NX_KEYTYPE_BRIGHTNESS_DOWN): "Brightness_down",
+    1000 + UInt16(NX_KEYTYPE_CAPS_LOCK): "CapsLock",
+    1000 + UInt16(NX_KEYTYPE_HELP): "HELP",
+    1000 + UInt16(NX_POWER_KEY): "PowerKey",
+    1000 + UInt16(NX_KEYTYPE_MUTE): "mute",
+    1000 + UInt16(NX_KEYTYPE_NUM_LOCK): "NUM_LOCK",
+    1000 + UInt16(NX_KEYTYPE_CONTRAST_UP): "CONTRAST_UP",
+    1000 + UInt16(NX_KEYTYPE_CONTRAST_DOWN): "CONTRAST_DOWN",
+    1000 + UInt16(NX_KEYTYPE_LAUNCH_PANEL): "LAUNCH_PANEL",
+    1000 + UInt16(NX_KEYTYPE_EJECT): "EJECT",
+    1000 + UInt16(NX_KEYTYPE_VIDMIRROR): "VIDMIRROR",
+    1000 + UInt16(NX_KEYTYPE_PLAY): "Play",
+    1000 + UInt16(NX_KEYTYPE_NEXT): "NEXT",
+    1000 + UInt16(NX_KEYTYPE_PREVIOUS): "PREVIOUS",
+    1000 + UInt16(NX_KEYTYPE_FAST): "Fast",
+    1000 + UInt16(NX_KEYTYPE_REWIND): "Rewind",
+    1000 + UInt16(NX_KEYTYPE_ILLUMINATION_UP): "Illumination_up",
+    1000 + UInt16(NX_KEYTYPE_ILLUMINATION_DOWN): "Illumination_down",
+    1000 + UInt16(NX_KEYTYPE_ILLUMINATION_TOGGLE): "ILLUMINATION_TOGGLE"
+]

@@ -9,6 +9,7 @@
 
 #import <AppKit/AppKit.h>
 
+extern void DFRSystemModalShowsCloseBoxWhenFrontMost(BOOL);
 extern void DFRElementSetControlStripPresenceForIdentifier(NSTouchBarItemIdentifier, BOOL);
 
 @interface NSTouchBarItem ()

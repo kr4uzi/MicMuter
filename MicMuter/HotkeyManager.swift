@@ -7,23 +7,62 @@
 //
 
 import Foundation
+import Combine
 
 protocol HotkeyManagerDelegate : AnyObject {
     func hotkeyPressed()
 }
 
+struct KeyInfo {
+    var key: Int64
+    var flags: KeyFlags
+    
+    public var description: String {
+        var desc = [String]()
+        if flags.contains(.Function) {
+            desc.append("fn")
+        }
+        
+        if flags.contains(.Control) {
+            desc.append("⌃")
+        }
+        
+        if flags.contains(.Alternate) {
+            desc.append("⌥")
+        }
+        
+        if flags.contains(.Command) {
+            desc.append("⌘")
+        }
+        
+        if flags.contains(.Shift) {
+            desc.append("⇧")
+        }
+        
+        desc.append(KeyHook.keyToStr(key))
+        return desc.joined(separator: " ")
+    }
+    
+    static func == (lhs: KeyInfo, rhs: KeyInfo) -> Bool {
+        return lhs.key == rhs.key && lhs.flags == rhs.flags
+    }
+}
+
 class HotkeyManager: KeyHookDelegate {
     weak var delegate: HotkeyManagerDelegate?
     
-    var recordingCallBack: ((Set<UInt32>) -> Void)?
+    //var recordingCallBack: ((Set<UInt32>) -> Void)?
+    var recordingCallBack: ((KeyInfo) -> Void)?
     
-    let keyHook: KeyHook!
-    var pressedKeys = Set<UInt32>()
-    var hotkeySequence: Set<UInt32> = []
+    private let keyHook: KeyHook
+//    let hidKeyHook: HIDKeyHook
+    var hotkey: KeyInfo?
     
     init(runLoop: CFRunLoop) {
         keyHook = KeyHook(runLoop: runLoop)
+//        hidKeyHook = HIDKeyHook(runLoop: runLoop)
         keyHook.delegate = self
+        //hidKeyHook.delegate = self
     }
     
     deinit {
@@ -31,12 +70,14 @@ class HotkeyManager: KeyHookDelegate {
         keyHook.stop()
     }
     
-    func start() -> Bool {
-        if !started() {
-            return keyHook.start()
+    func start() {
+        if !self.keyHook.started {
+            self.keyHook.start()
         }
         
-        return true
+//        if !self.hidKeyHook.started {
+//            self.hidKeyHook.start()
+//        }
     }
     
     func stop() {
@@ -44,46 +85,27 @@ class HotkeyManager: KeyHookDelegate {
     }
     
     func started() -> Bool {
-        return keyHook.started
+        return keyHook.started// && self.hidKeyHook.started
     }
     
     func stopHotkeyRecording() {
-        pressedKeys.removeAll()
+        //pressedKeys.removeAll()
         recordingCallBack = nil
     }
     
-    func recordHotkeys(callback: @escaping (Set<UInt32>) -> Void) -> Bool {
-        pressedKeys.removeAll()
+    func recordHotkey(callback: @escaping ((KeyInfo) -> Void)) {
         recordingCallBack = callback
-        
-        if !started() {
-            return keyHook.start()
-        }
-        
-        return true
     }
     
-    func onKeyPress(keycode: UInt32, state: KeyState) {
-        if state == .down {
-            pressedKeys.insert(keycode)
-        } else {
-            pressedKeys.remove(keycode)
-        }
+    func onKeyPress(key: Int64, flags: KeyFlags, state: KeyState) {
+        let pressedKey = KeyInfo(key: key, flags: flags)
         
-        if recordingCallBack != nil {
-            // pressedKeys.count > 0 because you could start recording hotkeys with one key already down
-            // if this key is released the, the recording will end
-            if pressedKeys.count > 0 && state == .up {
-                // the first keyup marks the end of the hotkey sequence
-                // this key is still part of the hotkey sequence and
-                // because .up keycodes are removed from pressedKeys (see above),
-                // we have to insert the key again
-                pressedKeys.insert(keycode)
-                recordingCallBack!(pressedKeys)
+        if state == .down {
+            if recordingCallBack != nil {
+                let old = recordingCallBack
                 recordingCallBack = nil
-            }
-        } else if hotkeySequence.count > 0 {
-            if hotkeySequence.isSubset(of: pressedKeys) {
+                old!(pressedKey)
+            } else if self.hotkey != nil && pressedKey == self.hotkey! {
                 self.delegate?.hotkeyPressed()
             }
         }
